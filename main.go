@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,11 @@ import (
 	"github.com/Luzifer/rconfig"
 	"github.com/google/go-github/github"
 )
+
+type user struct {
+	Login string
+	Key   string
+}
 
 func listTeams(client *github.Client, org string) ([]*github.Team, error) {
 	page := 1
@@ -82,18 +88,22 @@ func getClient(token string) *github.Client {
 }
 
 func writeKeys(client *github.Client, w io.Writer, users []*github.User) error {
-	for _, user := range users {
-		keys, _, err := client.Users.ListKeys(*user.Login, nil)
+	results := make([]user, 0)
+	for _, u := range users {
+		keys, _, err := client.Users.ListKeys(*u.Login, nil)
 		if err != nil {
 			return fmt.Errorf("Error when fetching keys: %s", err)
 		}
 		for _, key := range keys {
 			if key.Key == nil {
-				return fmt.Errorf("Key is null pointer for %s", *user.Login)
+				return fmt.Errorf("Key is null pointer for %s", *u.Login)
 			}
-			fmt.Fprintln(w, *key.Key)
+			results = append(results, user{*u.Login, *key.Key})
+			break
 		}
 	}
+	b, _ := json.Marshal(results)
+	fmt.Fprintln(w, string(b))
 	return nil
 }
 
